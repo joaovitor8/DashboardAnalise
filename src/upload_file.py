@@ -4,7 +4,8 @@ from pathlib import Path
 from tkinter import filedialog
 
 
-def load_file():
+
+def upload_file():
   tk.Tk().withdraw()
   caminho = filedialog.askopenfilename(
     title="Selecione o arquivo",
@@ -28,3 +29,4 @@ def load_file():
     return None
 
   return df
+

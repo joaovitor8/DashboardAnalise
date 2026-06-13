@@ -1,15 +1,5 @@
 import pandas as pd
 
-# df.head(10)       # amostra visual
-
-# df.shape          # dimensões
-# df.describe()     # estatísticas
-
-# df.info()         # tipos e nulos
-# df.isnull().sum() # nulos por coluna
-# df.duplicated().sum() # duplicatas
-
-
 def inspect_data(df: pd.DataFrame) -> None:
   print("-" * 100)
   print("INSPEÇÃO DOS DADOS")
