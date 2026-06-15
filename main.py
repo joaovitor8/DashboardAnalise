@@ -2,7 +2,7 @@ import base64
 import io
 
 import pandas as pd
-from dash import Dash, dcc, html, Input, Output, State, dash_table
+from dash import Dash, dcc, html, Input, Output, State, dash_table, ClientsideFunction
 import dash
 
 from src.clean import clean_data
@@ -16,13 +16,18 @@ from src.charts import (
 )
 
 
-# ── Estilos ──────────────────────────────────────────────────────────────────
+# ── Constantes de estilo com CSS variables ───────────────────────────────────
+# Cores estruturais usam var(--...) para responder ao tema automaticamente.
+# Cores semânticas de domínio (azul, roxo, laranja) permanecem fixas.
 CARD = {
-  "backgroundColor": "white", "borderRadius": "8px",
-  "padding": "20px", "boxShadow": "0 1px 4px rgba(0,0,0,0.07)",
+  "backgroundColor": "var(--bg-card)",
+  "borderRadius": "8px",
+  "padding": "20px",
+  "boxShadow": "var(--shadow)",
   "marginBottom": "16px",
+  "border": "0.5px solid var(--border)",
 }
-LABEL  = {"fontSize": "12px", "color": "#6c757d", "marginBottom": "4px"}
+LABEL  = {"fontSize": "12px", "color": "var(--text-2)", "marginBottom": "4px"}
 SELECT = {"width": "100%", "marginBottom": "12px"}
 TAMANHO_MAXIMO_MB = 50
 
@@ -32,15 +37,20 @@ app = Dash(__name__, title="Dashboard de Análise")
 
 
 app.layout = html.Div(
-  style={"fontFamily": "Segoe UI, sans-serif", "padding": "24px", "backgroundColor": "#f0f2f5", "minHeight": "100vh"},
+  style={"padding": "24px", "minHeight": "100vh", "backgroundColor": "var(--bg-page)"},
 
   children=[
-    # Cabeçalho
-    html.Div(style={**CARD, "padding": "16px 20px", "borderLeft": "4px solid #0d6efd"}, children=[
-      html.H2("Dashboard de Análise de Dados",
-        style={"margin": 0, "color": "#212529", "fontWeight": 600}),
-      html.P("Carregue um CSV ou Excel — o sistema detecta o domínio automaticamente",
-        style={"margin": "4px 0 0", "color": "#6c757d", "fontSize": "14px"}),
+
+    # Cabeçalho com toggle de tema
+    html.Div(style={**CARD, "padding": "14px 20px", "borderLeft": "4px solid var(--accent)", "display": "flex", "alignItems": "center", "justifyContent": "space-between"}, children=[
+      html.Div([
+        html.H2("Dashboard de Análise de Dados",
+          style={"margin": 0, "color": "var(--text-3)", "fontWeight": 600}),
+        html.P("Carregue um CSV ou Excel — o sistema detecta o domínio automaticamente",
+          style={"margin": "4px 0 0", "color": "var(--text-2)", "fontSize": "14px"}),
+      ]),
+      # Botão de alternância de tema
+      html.Button("🌙 Escuro", id="btn-tema", n_clicks=0),
     ]),
 
     # Upload
@@ -49,32 +59,68 @@ app.layout = html.Div(
         id="upload-data",
         children=html.Div([
           "Arraste e solte ou ",
-          html.A("selecione um arquivo", style={"color": "#0d6efd"}),
+          html.A("selecione um arquivo", style={"color": "var(--accent)"}),
           html.Br(),
           html.Span(f"CSV ou Excel · Máximo {TAMANHO_MAXIMO_MB}MB",
-            style={"fontSize": "12px", "color": "#adb5bd"}),
+            style={"fontSize": "12px", "color": "var(--text-2)"}),
         ]),
         style={
           "width": "100%", "height": "90px", "lineHeight": "1.6",
           "borderWidth": "2px", "borderStyle": "dashed",
           "borderRadius": "8px", "textAlign": "center",
           "padding": "18px 0", "cursor": "pointer",
-          "borderColor": "#0d6efd", "color": "#495057",
+          "borderColor": "var(--accent)", "color": "var(--text-2)",
+          "backgroundColor": "var(--bg-surface)",
         },
         multiple=False, max_size=TAMANHO_MAXIMO_MB * 1024 * 1024,
       ),
     ]),
 
+    # Store do DataFrame e do tema
     dcc.Store(id="store-df"),
+    dcc.Store(id="store-tema", data="light"),
 
-    # Três seções independentes, preenchidas pelo callback 1
     html.Div(id="output-overview"),
-    html.Div(id="output-dominio"),   # ← NOVO: badge + KPIs + gráficos automáticos
+    html.Div(id="output-dominio"),
     html.Div(id="output-controles"),
-
-    # Gráficos genéricos, preenchidos pelo callback 2
     html.Div(id="output-graficos"),
   ]
+)
+
+
+# ── Clientside callback: alterna tema sem round-trip ao servidor ──────────────
+# Atualiza: data-theme no <html>, texto do botão e Plotly charts.
+app.clientside_callback(
+  """
+  function(n_clicks, tema_atual) {
+    const novo = tema_atual === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', novo);
+
+    const dark    = novo === 'dark';
+    const plotBg  = dark ? '#161b22' : '#ffffff';
+    const fontClr = dark ? '#e6edf3' : '#444444';
+    const gridClr = dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+
+    document.querySelectorAll('.js-plotly-plot').forEach(function(el) {
+      try {
+        Plotly.relayout(el, {
+          paper_bgcolor: plotBg,
+          plot_bgcolor:  plotBg,
+          font:          { color: fontClr },
+          xaxis: { gridcolor: gridClr, zerolinecolor: gridClr },
+          yaxis: { gridcolor: gridClr, zerolinecolor: gridClr },
+        });
+      } catch(e) {}
+    });
+
+    const label = dark ? '☀️ Claro' : '🌙 Escuro';
+    return [novo, label];
+  }
+  """,
+  [Output("store-tema", "data"), Output("btn-tema", "children")],
+  Input("btn-tema", "n_clicks"),
+  State("store-tema", "data"),
+  prevent_initial_call=True,
 )
 
 
@@ -110,7 +156,7 @@ def _alerta(msg: str, tipo: str = "danger") -> html.Div:
 @app.callback(
   Output("store-df",        "data"),
   Output("output-overview", "children"),
-  Output("output-dominio",  "children"),   # ← NOVO output
+  Output("output-dominio",  "children"),
   Output("output-controles","children"),
   Input("upload-data",  "contents"),
   State("upload-data",  "filename"),
@@ -145,61 +191,58 @@ def processar_upload(contents, filename):
     })
     for m in mensagens
   ]
+
   overview = html.Div([
     html.Div(style=CARD, children=[
-      html.H5("Visão Geral", style={"marginTop": 0, "color": "#343a40"}),
+      html.H5("Visão Geral", style={"marginTop": 0, "color": "var(--text-3)"}),
       html.Div(style={"display": "flex", "gap": "16px", "flexWrap": "wrap", "marginBottom": "16px"}, children=[
-        _metrica("Linhas originais",    f"{df_raw.shape[0]:,}"),
-        _metrica("Linhas pós-limpeza",  f"{df.shape[0]:,}"),
-        _metrica("Colunas",             f"{df.shape[1]}"),
-        _metrica("Numéricas",           f"{len(caps['numericas'])}"),
-        _metrica("Categóricas",         f"{len(caps['categoricas'])}"),
+        _metrica("Linhas originais",   f"{df_raw.shape[0]:,}"),
+        _metrica("Linhas pós-limpeza", f"{df.shape[0]:,}"),
+        _metrica("Colunas",            f"{df.shape[1]}"),
+        _metrica("Numéricas",          f"{len(caps['numericas'])}"),
+        _metrica("Categóricas",        f"{len(caps['categoricas'])}"),
       ]),
       html.Details([
         html.Summary("🧹 Log de limpeza",
-          style={"cursor": "pointer", "color": "#6c757d", "fontSize": "13px"}),
+          style={"cursor": "pointer", "color": "var(--text-2)", "fontSize": "13px"}),
         html.Ul(itens_log, style={"marginTop": "8px", "paddingLeft": "16px"}),
       ]),
-  ]),
-  html.Div(style=CARD, children=[
-      html.H6("Primeiras linhas", style={"color": "#343a40", "marginTop": 0}),
+    ]),
+    html.Div(style=CARD, children=[
+      html.H6("Primeiras linhas", style={"color": "var(--text-3)", "marginTop": 0}),
       dash_table.DataTable(
         data=df.head(10).to_dict("records"),
         columns=[{"name": c, "id": c} for c in df.columns],
         style_table={"overflowX": "auto"},
         style_cell={"fontSize": "13px", "padding": "6px 12px", "textAlign": "left"},
-        style_header={"backgroundColor": "#f8f9fa", "fontWeight": "600"},
+        style_header={"backgroundColor": "var(--bg-surface)", "fontWeight": "600"},
         page_size=10,
       ),
     ]),
   ])
 
-  # ── Detecção de domínio ──
-  deteccao  = detectar_dominio(df)
-  analise   = analisar_dominio(df, deteccao)
+  deteccao   = detectar_dominio(df)
+  analise    = analisar_dominio(df, deteccao)
   dominio_ui = _renderizar_dominio(deteccao, analise)
-
-  # ── Controles genéricos ──
-  controles = _montar_controles(caps)
+  controles  = _montar_controles(caps)
 
   return store_data, overview, dominio_ui, controles
 
 
-# ── Renderização da seção de domínio ─────────────────────────────────────────
+# ── Renderização do domínio ──────────────────────────────────────────────────
 def _renderizar_dominio(deteccao: dict, analise: dict) -> html.Div:
   if deteccao["dominio"] == "generico":
-    return html.Div()   # Sem domínio detectado → seção oculta
+    return html.Div()
 
-  cor         = deteccao["cor"]
-  emoji       = deteccao["emoji"]
-  label       = deteccao["label"]
-  confianca   = deteccao["confianca"]
-  descricao   = deteccao["descricao"]
-  kpis        = analise.get("kpis", [])
-  graficos    = analise.get("graficos", [])
-  insights    = analise.get("insights", [])
+  cor       = deteccao["cor"]
+  emoji     = deteccao["emoji"]
+  label     = deteccao["label"]
+  confianca = deteccao["confianca"]
+  descricao = deteccao["descricao"]
+  kpis      = analise.get("kpis", [])
+  graficos  = analise.get("graficos", [])
+  insights  = analise.get("insights", [])
 
-  # Texto e cor do badge de confiança
   confianca_cfg = {
     "alta":  ("Alta confiança",  "#d1e7dd", "#0f5132"),
     "media": ("Média confiança", "#fff3cd", "#856404"),
@@ -207,7 +250,6 @@ def _renderizar_dominio(deteccao: dict, analise: dict) -> html.Div:
   }
   conf_label, conf_bg, conf_text = confianca_cfg.get(confianca, ("", "#eee", "#333"))
 
-  # ── Banner do domínio ──
   banner = html.Div(style={
     **CARD,
     "borderLeft": f"4px solid {cor}",
@@ -215,10 +257,11 @@ def _renderizar_dominio(deteccao: dict, analise: dict) -> html.Div:
     "justifyContent": "space-between", "flexWrap": "wrap", "gap": "12px",
   }, children=[
     html.Div([
-      html.Span(f"{emoji}  Domínio detectado: ", style={"color": "#6c757d", "fontSize": "13px"}),
+      html.Span(f"{emoji}  Domínio detectado: ",
+        style={"color": "var(--text-2)", "fontSize": "13px"}),
       html.Span(label, style={"fontWeight": 700, "fontSize": "16px", "color": cor}),
       html.Br(),
-      html.Span(descricao, style={"fontSize": "12px", "color": "#6c757d"}),
+      html.Span(descricao, style={"fontSize": "12px", "color": "var(--text-2)"}),
     ]),
     html.Span(conf_label, style={
       "fontSize": "11px", "fontWeight": 600,
@@ -227,40 +270,33 @@ def _renderizar_dominio(deteccao: dict, analise: dict) -> html.Div:
     }),
   ])
 
-  # ── KPI cards ──
   kpi_cards = html.Div(
     style={"display": "flex", "gap": "12px", "flexWrap": "wrap", "marginBottom": "16px"},
     children=[
       html.Div(style={
-        "backgroundColor": cor if k.get("destaque") else "#f8f9fa",
+        "backgroundColor": cor if k.get("destaque") else "var(--bg-surface)",
         "borderRadius": "8px", "padding": "14px 20px",
-        "minWidth": "140px", "textAlign": "center",
-        "flex": "1",
+        "minWidth": "140px", "textAlign": "center", "flex": "1",
       }, children=[
-          html.Div(k["valor"], style={
-            "fontSize": "20px", "fontWeight": "700",
-            "color": "white" if k.get("destaque") else "#212529",
-          }),
-          html.Div(k["label"], style={
-            "fontSize": "11px", "marginTop": "2px",
-            "color": "rgba(255,255,255,0.85)" if k.get("destaque") else "#6c757d",
-          }),
-        ])
-        for k in kpis
+        html.Div(k["valor"], style={
+          "fontSize": "20px", "fontWeight": "700",
+          "color": "white" if k.get("destaque") else "var(--text-1)",
+        }),
+        html.Div(k["label"], style={
+          "fontSize": "11px", "marginTop": "2px",
+          "color": "rgba(255,255,255,0.85)" if k.get("destaque") else "var(--text-2)",
+        }),
+      ])
+      for k in kpis
     ],
   ) if kpis else html.Div()
 
-  # ── Insights ──
-  insight_els = html.Div([
-    _alerta(i, "warning") for i in insights
-  ]) if insights else html.Div()
+  insight_els = html.Div([_alerta(i, "warning") for i in insights]) if insights else html.Div()
 
-  # ── Gráficos do domínio ──
   graf_els = html.Div(
     style={"display": "grid", "gridTemplateColumns": "1fr 1fr", "gap": "16px"},
     children=[
-      html.Div(style={**CARD, "marginBottom": 0},
-        children=[dcc.Graph(figure=fig)])
+      html.Div(style={**CARD, "marginBottom": 0}, children=[dcc.Graph(figure=fig)])
       for fig in graficos
     ],
   ) if graficos else html.Div()
@@ -268,19 +304,19 @@ def _renderizar_dominio(deteccao: dict, analise: dict) -> html.Div:
   return html.Div([
     banner,
     html.Div(style=CARD, children=[
-      html.H6(f"Métricas — {label}", style={"color": "#343a40", "marginTop": 0}),
+      html.H6(f"Métricas — {label}", style={"color": "var(--text-3)", "marginTop": 0}),
       kpi_cards,
       insight_els,
     ]) if (kpis or insights) else html.Div(),
     html.Div(style={**CARD, "paddingBottom": "4px"}, children=[
       html.H6(f"Gráficos Automáticos — {label}",
-        style={"color": "#343a40", "marginTop": 0, "marginBottom": "16px"}),
+        style={"color": "var(--text-3)", "marginTop": 0, "marginBottom": "16px"}),
       graf_els,
     ]) if graficos else html.Div(),
   ])
 
 
-# ── Callback 2: Controles → gráficos genéricos ───────────────────────────────
+# ── Callback 2: Gráficos genéricos ──────────────────────────────────────────
 def _gerar_seguro(fn, *args, **kwargs):
   try:
     return fn(*args, **kwargs)
@@ -328,7 +364,7 @@ def atualizar_graficos(store_data, hist_col, sc_x, sc_y, bar_cat, bar_num, box_c
 
   if not graficos:
     return html.Div("Selecione colunas nos controles acima para gerar gráficos.",
-      style={**CARD, "color": "#6c757d", "textAlign": "center"})
+      style={**CARD, "color": "var(--text-2)", "textAlign": "center"})
 
   return html.Div(
     style={"display": "grid", "gridTemplateColumns": "1fr 1fr", "gap": "16px"},
@@ -338,13 +374,16 @@ def atualizar_graficos(store_data, hist_col, sc_x, sc_y, bar_cat, bar_num, box_c
 
 # ── Helpers de layout ────────────────────────────────────────────────────────
 def _metrica(label, valor):
-    return html.Div(style={
-        "backgroundColor": "#f8f9fa", "borderRadius": "6px",
-        "padding": "10px 16px", "minWidth": "120px", "textAlign": "center",
-    }, children=[
-        html.Div(valor, style={"fontSize": "22px", "fontWeight": "600", "color": "#212529"}),
-        html.Div(label, style={"fontSize": "11px", "color": "#6c757d", "marginTop": "2px"}),
-    ])
+  return html.Div(style={
+    "backgroundColor": "var(--bg-surface)",
+    "borderRadius": "6px",
+    "padding": "10px 16px",
+    "minWidth": "120px",
+    "textAlign": "center",
+  }, children=[
+    html.Div(valor, style={"fontSize": "22px", "fontWeight": "600", "color": "var(--text-1)"}),
+    html.Div(label, style={"fontSize": "11px", "color": "var(--text-2)", "marginTop": "2px"}),
+  ])
 
 
 def _card_grafico(fig):
@@ -398,14 +437,16 @@ def _montar_controles(caps: dict) -> html.Div:
 
   if not secoes:
     return html.Div("Nenhum gráfico disponível para este conjunto de dados.",
-      style={**CARD, "color": "#6c757d"})
+      style={**CARD, "color": "var(--text-2)"})
 
   return html.Div(style=CARD, children=[
-    html.H5("Explorar Dados", style={"marginTop": 0, "color": "#343a40"}),
+    html.H5("Explorar Dados", style={"marginTop": 0, "color": "var(--text-3)"}),
     html.P("Gráficos customizáveis — escolha as colunas abaixo.",
-      style={"fontSize": "13px", "color": "#6c757d", "marginBottom": "16px"}),
+      style={"fontSize": "13px", "color": "var(--text-2)", "marginBottom": "16px"}),
     html.Div(
-      style={"display": "grid", "gridTemplateColumns": "repeat(auto-fill, minmax(200px, 1fr))", "gap": "0 24px"},
+      style={"display": "grid",
+        "gridTemplateColumns": "repeat(auto-fill, minmax(200px, 1fr))",
+        "gap": "0 24px"},
       children=secoes,
     ),
   ])
@@ -413,7 +454,7 @@ def _montar_controles(caps: dict) -> html.Div:
 
 def _secao(titulo, children):
   return html.Div([
-    html.P(titulo, style={"fontSize": "13px", "fontWeight": "600", "color": "#495057", "marginBottom": "6px"}),
+    html.P(titulo, style={"fontSize": "13px", "fontWeight": "600", "color": "var(--text-2)", "marginBottom": "6px"}),
     *children,
   ])
 

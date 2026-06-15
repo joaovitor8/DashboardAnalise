@@ -1,5 +1,124 @@
+/* ── Variáveis: tema claro (padrão) ─────────────────────────────────────── */
+:root {
+  --bg-page:    #f0f2f5;
+  --bg-card:    #ffffff;
+  --bg-surface: #f8f9fa;
+  --text-1:     #212529;
+  --text-2:     #6c757d;
+  --text-3:     #343a40;
+  --border:     rgba(0, 0, 0, 0.07);
+  --shadow:     0 1px 4px rgba(0, 0, 0, 0.07);
+  --accent:     #0d6efd;
+  --transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* ── Variáveis: tema escuro ──────────────────────────────────────────────── */
+[data-theme="dark"] {
+  --bg-page:    #0d1117;
+  --bg-card:    #161b22;
+  --bg-surface: #21262d;
+  --text-1:     #e6edf3;
+  --text-2:     #8b949e;
+  --text-3:     #f0f6fc;
+  --border:     rgba(255, 255, 255, 0.08);
+  --shadow:     0 2px 8px rgba(0, 0, 0, 0.5);
+  --accent:     #58a6ff;
+}
+
+/* ── Reset ───────────────────────────────────────────────────────────────── */
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+}
+
+body {
+  background-color: var(--bg-page) !important;
+  color: var(--text-1);
+  font-family: "Segoe UI", sans-serif;
+  transition: var(--transition);
+}
+
+/* ── Botão de tema ───────────────────────────────────────────────────────── */
+#btn-tema {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 5px 14px;
+  cursor: pointer;
+  color: var(--text-2);
+  font-size: 13px;
+  font-family: inherit;
+  transition: var(--transition);
+  white-space: nowrap;
+}
+
+#btn-tema:hover {
+  background-color: var(--bg-surface);
+  color: var(--text-1);
+}
+
+/* ── Dash DataTable ──────────────────────────────────────────────────────── */
+[data-theme="dark"] .dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner table {
+  background-color: var(--bg-card) !important;
+}
+
+[data-theme="dark"] .dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner td,
+[data-theme="dark"] .dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner th {
+  background-color: var(--bg-card) !important;
+  color: var(--text-1) !important;
+  border-color: var(--border) !important;
+}
+
+[data-theme="dark"] .dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner th {
+  background-color: var(--bg-surface) !important;
+}
+
+/* ── Dash Dropdown ───────────────────────────────────────────────────────── */
+[data-theme="dark"] .Select-control {
+  background-color: var(--bg-surface) !important;
+  border-color: var(--border) !important;
+}
+
+[data-theme="dark"] .Select-value-label,
+[data-theme="dark"] .Select-placeholder {
+  color: var(--text-2) !important;
+}
+
+[data-theme="dark"] .Select-input > input {
+  color: var(--text-1) !important;
+}
+
+[data-theme="dark"] .Select-menu-outer {
+  background-color: var(--bg-surface) !important;
+  border-color: var(--border) !important;
+}
+
+[data-theme="dark"] .VirtualizedSelectOption {
+  background-color: var(--bg-surface) !important;
+  color: var(--text-1) !important;
+}
+
+[data-theme="dark"] .VirtualizedSelectFocusedOption {
+  background-color: var(--bg-page) !important;
+  color: var(--text-1) !important;
+}
+
+[data-theme="dark"] .Select-arrow-zone .Select-arrow {
+  border-top-color: var(--text-2) !important;
+}
+
+/* ── dcc.Upload ─────────────────────────────────────────────────────────── */
+[data-theme="dark"] .dash-upload {
+  background-color: var(--bg-surface) !important;
+  color: var(--text-2) !important;
+}
+
+/* ── Details / Summary ───────────────────────────────────────────────────── */
+[data-theme="dark"] details summary {
+  color: var(--text-2);
+}
+
+[data-theme="dark"] details li {
+  color: var(--text-2);
 }
