@@ -6,7 +6,6 @@ from dash import Dash, dcc, html, Input, Output, State, dash_table
 import dash
 
 from src.clean import clean_data
-from src.analyzer import analyze
 from src.detector import detectar_dominio
 from src.domain_analysis import analisar_dominio
 from src.charts import (
